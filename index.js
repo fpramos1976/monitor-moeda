@@ -12,13 +12,10 @@ const LIMITE_ALERTA = 6.0;
 let tempoUltimoAlerta = 0;
 
 async function pegarCotacao() {
-    const url = `https://economia.awesomeapi.com.br/last/${MOEDA}`;
+    // Usando uma API global estável que não bloqueia IPs de servidores
+    const url = `https://open.er-api.com/v6/latest/EUR`;
     try {
-        const resposta = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-        });
+        const resposta = await fetch(url);
         
         if (!resposta.ok) {
             console.log(`❌ API respondeu com status: ${resposta.status}`);
@@ -26,11 +23,13 @@ async function pegarCotacao() {
         }
 
         const dados = await resposta.json();
-        const chaves = Object.keys(dados);
-        if (chaves.length > 0) {
-            const primeiraChave = chaves[0];
-            return parseFloat(dados[primeiraChave].bid);
+        
+        // Essa API traz a base EUR e as chaves de conversão dentro de "rates"
+        if (dados && dados.rates && dados.rates.BRL) {
+            return parseFloat(dados.rates.BRL);
         }
+        
+        console.log("❌ Formato de dados inesperado da nova API.");
         return null;
     } catch (erro) {
         console.log("❌ Erro ao buscar a cotação na internet:", erro.message);
