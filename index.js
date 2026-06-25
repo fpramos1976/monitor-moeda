@@ -9,7 +9,6 @@ const ID_TELEGRAM = process.env.ID_TELEGRAM;
 const MOEDA = "EUR-BRL"; 
 const LIMITE_ALERTA = 6.0; 
 
-// Controle para evitar enxurrada de mensagens (espera 1 hora antes de avisar de novo)
 let tempoUltimoAlerta = 0;
 
 async function pegarCotacao() {
@@ -33,11 +32,13 @@ async function pegarCotacao() {
 async function enviarNotificacao(mensagem) {
     const url = `https://api.telegram.org/bot${TOKEN_TELEGRAM}/sendMessage`;
     try {
+        console.log("📤 Tentando enviar dados para a API do Telegram...");
         const resposta = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: ID_TELEGRAM, text: messagem })
+            body: JSON.stringify({ chat_id: ID_TELEGRAM, text: mensagem }) // 👈 100% Corrigido para "mensagem"
         });
+        
         if (resposta.ok) {
             console.log("✅ Notificação enviada com sucesso para o Telegram!");
         } else {
@@ -49,16 +50,18 @@ async function enviarNotificacao(mensagem) {
     }
 }
 
-// Função que faz a checagem pontual do preço
 async function verificarMercado() {
+    console.log("📡 Buscando cotação atual na API...");
     const precoAtual = await pegarCotacao();
-    if (!precoAtual) return;
+    if (!precoAtual) {
+        console.log("❌ Não foi possível ler o preço atual.");
+        return;
+    }
 
     console.log(`[${new Date().toLocaleTimeString()}] Preço atual: R$ ${precoAtual.toFixed(2)}`);
 
     if (precoAtual <= LIMITE_ALERTA) {
         const agora = Date.now();
-        // Se faz menos de 1 hora (3.600.000 ms) do último alerta, não envia de novo
         if (agora - tempoUltimoAlerta > 3600000) {
             const textoAlerta = `🚨 ATENÇÃO! O Euro está em R$ ${precoAtual.toFixed(2)}! Hora de comprar!`;
             await enviarNotificacao(textoAlerta);
@@ -66,27 +69,24 @@ async function verificarMercado() {
         } else {
             console.log("⏳ Alerta no gatilho, mas silenciado para evitar repetições consecutivas.");
         }
+    } else {
+        console.log(`ℹ️ O preço atual (R$ ${precoAtual.toFixed(2)}) está acima do limite configurado (R$ ${LIMITE_ALERTA}). Nenhum alerta enviado.`);
     }
 }
 
-// Rota padrão para a Render verificar que o servidor está vivo e saudável
 app.get('/', (req, res) => {
     res.send('🤖 Monitor de Moedas está online e rodando na nuvem!');
 });
 
-// Liga o servidor Express na porta correta
-// Liga o servidor Express na porta correta
 app.listen(PORT, () => {
     console.log(`💻 Servidor ativo na porta ${PORT}`);
     console.log(`🤖 Monitor iniciado! Olhando o ${MOEDA}. Alerta configurado para: R$ ${LIMITE_ALERTA}`);
     
-    // Pequeno atraso de 2 segundos antes da primeira checagem para dar tempo da rede da nuvem estabilizar
     setTimeout(() => {
         console.log("🔄 Executando primeira checagem de mercado...");
         verificarMercado().catch(err => console.log("❌ Erro fatal na checagem:", err));
     }, 2000);
     
-    // Executa a cada 1 minuto (60000 milissegundos) sem travar o servidor
     setInterval(() => {
         console.log("🔄 Executando checagem periódica...");
         verificarMercado().catch(err => console.log("❌ Erro fatal na checagem:", err));
