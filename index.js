@@ -1,50 +1,66 @@
+import express from 'express';
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Cria uma página web fictícia para a Render não dar erro
+app.get('/', (req, res) => {
+    res.send('🤖 Monitor de Moedas está online e rodando na nuvem!');
+});
+
+app.listen(PORT, () => {
+    console.log(`💻 Servidor web fictício rodando na porta ${PORT}`);
+});
+
 // --- CONFIGURAÇÕES SEGURAS (NUVEM) ---
-// O script agora vai ler os tokens direto do servidor da Render
 const TOKEN_TELEGRAM = process.env.TOKEN_TELEGRAM; 
 const ID_TELEGRAM = process.env.ID_TELEGRAM; 
 const MOEDA = "EUR-BRL"; 
-const LIMITE_ALERTA = 6.0; 
+const LIMITE_ALERTA = 6.0; // Defina aqui o preço desejado
 
-// Função que vai na internet buscar o preço da moeda
+// Função robusta para ler a API na nuvem sem depender do nome da chave
 async function pegarCotacao() {
     const url = `https://economia.awesomeapi.com.br/last/${MOEDA}`;
     try {
         const resposta = await fetch(url);
         const dados = await resposta.json();
         
-        // Ajusta o texto para ler o preço (ex: remove o hífen de USD-BRL)
-        const chave = MOEDA.replace("-", "");
-        const cotacaoAtual = parseFloat(dados[chave].bid);
+        // Pega a primeira propriedade que estiver dentro do objeto retornado (ex: EURBRL)
+        const chaves = Object.keys(dados);
+        if (chaves.length > 0) {
+            const primeiraChave = chaves[0];
+            return parseFloat(dados[primeiraChave].bid);
+        }
         
-        return cotacaoAtual;
+        console.log("❌ Resposta da API veio vazia.");
+        return null;
     } catch (erro) {
-        console.log("Erro ao buscar a cotação na internet:", erro.message);
+        console.log("❌ Erro ao buscar a cotação na internet:", erro.message);
         return null;
     }
 }
 
-// Função que manda a mensagem para o seu celular via Telegram
 async function enviarNotificacao(mensagem) {
     const url = `https://api.telegram.org/bot${TOKEN_TELEGRAM}/sendMessage`;
     try {
-        await fetch(url, {
+        const resposta = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                chat_id: ID_TELEGRAM,
-                text: mensagem
-            })
+            body: JSON.stringify({ chat_id: ID_TELEGRAM, text: mensagem })
         });
-        console.log("Notificação enviada para o Telegram!");
+        const resultado = await resposta.json();
+        if (resposta.ok) {
+            console.log("✅ Notificação enviada com sucesso para o Telegram!");
+        } else {
+            console.log("❌ O Telegram recusou a mensagem. Motivo:", resultado.description);
+        }
     } catch (erro) {
-        console.log("Erro ao enviar mensagem no Telegram:", erro.message);
+        console.log("❌ Erro de conexão ao tentar enviar para o Telegram:", erro.message);
     }
 }
 
-// Função que faz o script esperar um tempo antes de tentar de novo
 const esperar = (milissegundos) => new Promise(resolve => setTimeout(resolve, milissegundos));
 
-// Função principal que fica rodando sem parar
 async function iniciarMonitoramento() {
     console.log(`🤖 Monitor iniciado! Olhando o ${MOEDA}. Alerta configurado para: R$ ${LIMITE_ALERTA}`);
 
@@ -54,18 +70,13 @@ async function iniciarMonitoramento() {
         if (precoAtual) {
             console.log(`[${new Date().toLocaleTimeString()}] Preço atual: R$ ${precoAtual.toFixed(2)}`);
 
-            // SE o preço atual for menor ou igual ao seu limite, ele avisa!
             if (precoAtual <= LIMITE_ALERTA) {
-                const textoAlerta = `🚨 ATENÇÃO! O valor do Euro esta para R$ ${precoAtual.toFixed(2)}! Hora de comprar!`;
+                const textoAlerta = `🚨 ATENÇÃO! O Euro está em R$ ${precoAtual.toFixed(2)}! Hora de comprar!`;
                 await enviarNotificacao(textoAlerta);
-                
-                // Se ele avisar, espera 1 hora (3600000 ms) para não ficar mandando mensagem toda hora
-                await esperar(3600000);
+                await esperar(3600000); // Espera 1 hora se já avisou
             }
         }
-
-        // Espera 1 minuto (60000 milissegundos) antes de checar o preço de novo
-        await esperar(60000);
+        await esperar(60000); // Checa a cada 1 minuto
     }
 }
 
