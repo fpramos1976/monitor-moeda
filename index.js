@@ -44,7 +44,10 @@ async function enviarNotificacao(mensagem) {
         const resposta = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: ID_TELEGRAM, text: mensagem }) // 👈 100% Corrigido para "mensagem"
+            body: JSON.stringify({ 
+                chat_id: Number(ID_TELEGRAM), // 👈 Força a Render a enviar como número puro
+                text: mensagem 
+            })
         });
         
         if (resposta.ok) {
