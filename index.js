@@ -75,13 +75,20 @@ app.get('/', (req, res) => {
 });
 
 // Liga o servidor Express na porta correta
+// Liga o servidor Express na porta correta
 app.listen(PORT, () => {
     console.log(`💻 Servidor ativo na porta ${PORT}`);
     console.log(`🤖 Monitor iniciado! Olhando o ${MOEDA}. Alerta configurado para: R$ ${LIMITE_ALERTA}`);
     
-    // Executa uma vez assim que o servidor liga
-    verificarMercado();
+    // Pequeno atraso de 2 segundos antes da primeira checagem para dar tempo da rede da nuvem estabilizar
+    setTimeout(() => {
+        console.log("🔄 Executando primeira checagem de mercado...");
+        verificarMercado().catch(err => console.log("❌ Erro fatal na checagem:", err));
+    }, 2000);
     
     // Executa a cada 1 minuto (60000 milissegundos) sem travar o servidor
-    setInterval(verificarMercado, 60000);
+    setInterval(() => {
+        console.log("🔄 Executando checagem periódica...");
+        verificarMercado().catch(err => console.log("❌ Erro fatal na checagem:", err));
+    }, 60000);
 });
