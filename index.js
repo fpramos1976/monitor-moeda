@@ -3,36 +3,26 @@ import express from 'express';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Cria uma página web fictícia para a Render não dar erro
-app.get('/', (req, res) => {
-    res.send('🤖 Monitor de Moedas está online e rodando na nuvem!');
-});
-
-app.listen(PORT, () => {
-    console.log(`💻 Servidor web fictício rodando na porta ${PORT}`);
-});
-
-// --- CONFIGURAÇÕES SEGURAS (NUVEM) ---
+// Configurações do Monitor
 const TOKEN_TELEGRAM = process.env.TOKEN_TELEGRAM; 
 const ID_TELEGRAM = process.env.ID_TELEGRAM; 
 const MOEDA = "EUR-BRL"; 
-const LIMITE_ALERTA = 6.0; // Defina aqui o preço desejado
+const LIMITE_ALERTA = 6.0; 
 
-// Função robusta para ler a API na nuvem sem depender do nome da chave
+// Controle para evitar enxurrada de mensagens (espera 1 hora antes de avisar de novo)
+let tempoUltimoAlerta = 0;
+
 async function pegarCotacao() {
     const url = `https://economia.awesomeapi.com.br/last/${MOEDA}`;
     try {
         const resposta = await fetch(url);
         const dados = await resposta.json();
         
-        // Pega a primeira propriedade que estiver dentro do objeto retornado (ex: EURBRL)
         const chaves = Object.keys(dados);
         if (chaves.length > 0) {
             const primeiraChave = chaves[0];
             return parseFloat(dados[primeiraChave].bid);
         }
-        
-        console.log("❌ Resposta da API veio vazia.");
         return null;
     } catch (erro) {
         console.log("❌ Erro ao buscar a cotação na internet:", erro.message);
@@ -46,12 +36,12 @@ async function enviarNotificacao(mensagem) {
         const resposta = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: ID_TELEGRAM, text: mensagem })
+            body: JSON.stringify({ chat_id: ID_TELEGRAM, text: message })
         });
-        const resultado = await resposta.json();
         if (resposta.ok) {
             console.log("✅ Notificação enviada com sucesso para o Telegram!");
         } else {
+            const resultado = await resposta.json();
             console.log("❌ O Telegram recusou a mensagem. Motivo:", resultado.description);
         }
     } catch (erro) {
@@ -59,26 +49,39 @@ async function enviarNotificacao(mensagem) {
     }
 }
 
-const esperar = (milissegundos) => new Promise(resolve => setTimeout(resolve, milissegundos));
+// Função que faz a checagem pontual do preço
+async function verificarMercado() {
+    const precoAtual = await pegarCotacao();
+    if (!precoAtual) return;
 
-async function iniciarMonitoramento() {
-    console.log(`🤖 Monitor iniciado! Olhando o ${MOEDA}. Alerta configurado para: R$ ${LIMITE_ALERTA}`);
+    console.log(`[${new Date().toLocaleTimeString()}] Preço atual: R$ ${precoAtual.toFixed(2)}`);
 
-    while (true) {
-        const precoAtual = await pegarCotacao();
-
-        if (precoAtual) {
-            console.log(`[${new Date().toLocaleTimeString()}] Preço atual: R$ ${precoAtual.toFixed(2)}`);
-
-            if (precoAtual <= LIMITE_ALERTA) {
-                const textoAlerta = `🚨 ATENÇÃO! O Euro está em R$ ${precoAtual.toFixed(2)}! Hora de comprar!`;
-                await enviarNotificacao(textoAlerta);
-                await esperar(3600000); // Espera 1 hora se já avisou
-            }
+    if (precoAtual <= LIMITE_ALERTA) {
+        const agora = Date.now();
+        // Se faz menos de 1 hora (3.600.000 ms) do último alerta, não envia de novo
+        if (agora - tempoUltimoAlerta > 3600000) {
+            const textoAlerta = `🚨 ATENÇÃO! O Euro está em R$ ${precoAtual.toFixed(2)}! Hora de comprar!`;
+            await enviarNotificacao(textoAlerta);
+            tempoUltimoAlerta = agora;
+        } else {
+            console.log("⏳ Alerta no gatilho, mas silenciado para evitar repetições consecutivas.");
         }
-        await esperar(60000); // Checa a cada 1 minuto
     }
 }
 
-// Executa o monitoramento
-iniciarMonitoramento();
+// Rota padrão para a Render verificar que o servidor está vivo e saudável
+app.get('/', (req, res) => {
+    res.send('🤖 Monitor de Moedas está online e rodando na nuvem!');
+});
+
+// Liga o servidor Express na porta correta
+app.listen(PORT, () => {
+    console.log(`💻 Servidor ativo na porta ${PORT}`);
+    console.log(`🤖 Monitor iniciado! Olhando o ${MOEDA}. Alerta configurado para: R$ ${LIMITE_ALERTA}`);
+    
+    // Executa uma vez assim que o servidor liga
+    verificarMercado();
+    
+    // Executa a cada 1 minuto (60000 milissegundos) sem travar o servidor
+    setInterval(verificarMercado, 60000);
+});
