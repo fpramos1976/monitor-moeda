@@ -14,9 +14,18 @@ let tempoUltimoAlerta = 0;
 async function pegarCotacao() {
     const url = `https://economia.awesomeapi.com.br/last/${MOEDA}`;
     try {
-        const resposta = await fetch(url);
-        const dados = await resposta.json();
+        const resposta = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
         
+        if (!resposta.ok) {
+            console.log(`❌ API respondeu com status: ${resposta.status}`);
+            return null;
+        }
+
+        const dados = await resposta.json();
         const chaves = Object.keys(dados);
         if (chaves.length > 0) {
             const primeiraChave = chaves[0];
