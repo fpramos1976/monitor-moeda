@@ -36,7 +36,7 @@ async function enviarNotificacao(mensagem) {
         const resposta = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: ID_TELEGRAM, text: message })
+            body: JSON.stringify({ chat_id: ID_TELEGRAM, text: messagem })
         });
         if (resposta.ok) {
             console.log("✅ Notificação enviada com sucesso para o Telegram!");
