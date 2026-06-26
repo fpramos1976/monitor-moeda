@@ -59,5 +59,3 @@ Na secção Environment Variables, adiciona as chaves TOKEN_TELEGRAM e ID_TELEGR
 Este projeto está sob a licença MIT. Sente-te livre para usar, modificar e distribuir.
 
 Desenvolvido por Fábio Ramos 😎
-<img width="850" height="362" alt="image" src="https://github.com/user-attachments/assets/df839acd-f373-458e-8151-b5853495dbd2" />
-
