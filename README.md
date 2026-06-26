@@ -60,4 +60,4 @@ Este projeto está sob a licença MIT. Sente-te livre para usar, modificar e dis
 
 Desenvolvido por Fábio Ramos 😎
 
-![alt text](image.png)
+![Programa sendo executado local](image.png)
